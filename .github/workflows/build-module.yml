@@ -1,0 +1,109 @@
+# build-module -- a hand-dispatched build of one ref, under (R298)(4) (b688), in the form of (R263)(4).
+# The kernel's dependency form: vanilla Lean 4 with no lakefile (its tracked files are two .lean modules and lean-toolchain), so
+# SIDE-silence-principle's Mathlib-free form of b678 is carried with lake replaced by the plain-lean path of SIDE-global-section's
+# workflow (b655): each module compiled by the pinned toolchain's lean, its siblings through LEAN_PATH=build, in the order the target
+# names them. Inputs: the ref to build and the target (the modules in import order, space-separated). Steps: checkout at the ref; elan
+# from its official install script, the toolchain pinned by lean-toolchain; a free-memory logger beside the build that stops lean if free
+# memory falls beneath the 2,560 MB hold; the modules compiled; a scratch file carrying #print axioms for every named terminal, run by
+# lean through LEAN_PATH=build; the build log, the memory log and the axioms output uploaded as the run's artifact. No secret is used;
+# the platform's own token alone (read-only contents).
+# The named terminals are read from print_targets.txt at the kernel's root, one name per line, and the scratch file imports each module of
+# the target; no workflow edit is needed to print a new theorem.
+name: build-module
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "the commit SHA or branch to build"
+        required: true
+      target:
+        description: "the modules to compile, in import order, space-separated"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      HOLD_MB: "2560"
+      TARGET: ${{ inputs.target }}
+    steps:
+      - name: Checkout at the ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Refuse a target outside the module grammar
+        run: |
+          case "$TARGET" in
+            *[!A-Za-z0-9_\ ]*|"") echo "target refused: $TARGET"; exit 2 ;;
+          esac
+          mkdir -p out build
+          git rev-parse HEAD > out/ref.txt
+          cat lean-toolchain >> out/ref.txt
+
+      - name: Install elan (official script; the toolchain from lean-toolchain)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -o elan-init.sh
+          sh elan-init.sh -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Build under the hold
+        run: |
+          (
+            while true; do
+              avail=$(awk '/MemAvailable/ {print int($2/1024)}' /proc/meminfo)
+              echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) avail_mb=$avail" >> out/mem.log
+              if [ "$avail" -lt "$HOLD_MB" ]; then
+                echo "STOP $(date -u +%Y-%m-%dT%H:%M:%SZ) avail_mb=$avail beneath the hold $HOLD_MB" >> out/mem.log
+                pkill -f lean || true
+              fi
+              sleep 5
+            done
+          ) &
+          LOGGER=$!
+          set +e
+          : > out/build.log
+          fails=0
+          for m in $TARGET; do
+            LEAN_PATH=build lean "$m.lean" -o "build/$m.olean" >> out/build.log 2>&1
+            rc=$?
+            echo "### $m exit $rc" >> out/build.log
+            if [ "$rc" != "0" ]; then fails=$((fails+1)); fi
+          done
+          echo "$fails" > out/build_exit.txt
+          kill "$LOGGER" || true
+          awk -F'avail_mb=' '/avail_mb=/ {split($2,a," "); if (min=="" || a[1]+0<min) min=a[1]+0} END {print "LOW " min}' out/mem.log >> out/mem.log
+          exit 0
+
+      - name: Axioms of the named terminals
+        if: always()
+        run: |
+          : > out/Axioms.lean
+          for m in $TARGET; do echo "import $m" >> out/Axioms.lean; done
+          cp print_targets.txt out/print_targets.txt
+          while IFS= read -r n || [ -n "$n" ]; do
+            n=$(printf '%s' "$n" | tr -d '\r' | awk '{$1=$1; print}')
+            [ -z "$n" ] && continue
+            case "$n" in
+              *[!A-Za-z0-9_.\']*) echo "print target refused: $n" >> out/axioms_refused.txt; continue ;;
+            esac
+            echo "#print axioms $n" >> out/Axioms.lean
+          done < print_targets.txt
+          if [ "$(cat out/build_exit.txt)" = "0" ] && ! grep -q '^STOP ' out/mem.log; then
+            LEAN_PATH=build lean out/Axioms.lean > out/axioms.txt 2>&1 || true
+          else
+            echo "NOT RUN: the build did not complete under the hold" > out/axioms.txt
+          fi
+
+      - name: Upload the run's artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-module-${{ github.run_id }}
+          path: out/
+          if-no-files-found: error
