@@ -12,8 +12,10 @@ Work-order W-ORD-LAMBDA-NONNEG. Sibling anchor to `LiLinearMap.lam_add`.
 ingredient compilation; it reaches the σ=1 edge classically and must not be
 presented as reaching the center."
 
-That is: this file compiles the PRIME-LEDGER POSITIVITY ingredient — von
-Mangoldt Λ(n) ≥ 0, the arithmetic shadow of the Euler product. Classically this
+That is: this file compiles the kernel-altitude shadow of the prime-ledger
+positivity ingredient -- a pointwise-nonnegative integer stream yields a
+nonnegative Li value (lam_nonneg_of_nonneg) -- not von Mangoldt Lambda(n) >= 0
+itself, which no declaration here states. Classically this
 ingredient yields ONLY the σ = 1 zero-free region (de la Vallée Poussin, via the
 3-4-1 positivity), NOT the critical line. The gap from "zero-free near σ = 1" to
 "zeros on σ = 1/2" is the open sign layer (the clause h2). Nothing here is phrased

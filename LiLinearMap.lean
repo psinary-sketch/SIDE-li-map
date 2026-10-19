@@ -5,13 +5,10 @@ PLACE TO STAND programme. Vanilla Lean 4 (no Mathlib), federation pin v4.29.0-rc
 
 Li's coefficients arise from Taylor coefficients η_j of log ξ at s = 1 via
   λ_n = n · Σ_{j=1..n} C(n−1, n−j) · η_j.
-This file certifies the map's LINEARITY over the coefficient stream — the
-formal content of channel additivity: for any decomposition of log ξ into
-channels with coefficient streams η^A, η^Z,
-  λ_n = λ_A(n) + λ_Z(n)   for every n
-(THE_SINGLE_INDEFINITE_TERM §III; FINDINGS F.2026-07-09-g).
-The analytic identification of η with actual Taylor coefficients of log ξ
-is the manuscript/Mathlib leg; this kernel carries the algebra.
+This file certifies the Li map's linearity over integer-valued coefficient
+streams (Nat -> Int): lambda(eta + eta')_n = lambda(eta)_n + lambda(eta')_n
+for every n; the real Taylor coefficients of log xi, and the identification
+of eta with them, are outside this kernel.
 -/
 
 namespace LiLinearMap
@@ -51,8 +48,10 @@ theorem S_zero_fun (n : Nat) : S (fun _ => (0 : Int)) n = 0 := by
 def lam (η : Nat → Int) (n : Nat) : Int :=
   n * S (fun j => (binom (n-1) (n-j) : Int) * η j) n
 
-/-- CHANNEL ADDITIVITY: the Li map is additive in the coefficient stream.
-    Instance: λ_n = λ_A(n) + λ_Z(n) for the archimedean / pole+Euler split. -/
+/-- CHANNEL ADDITIVITY over integer streams: the Li map is additive in an
+    integer-valued coefficient stream; the archimedean / pole+Euler split, whose
+    coefficients are real, is the intended reading and is not an instance
+    compiled here. -/
 theorem lam_add (η η' : Nat → Int) (n : Nat) :
     lam (fun j => η j + η' j) n = lam η n + lam η' n := by
   unfold lam
