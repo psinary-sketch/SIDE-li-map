@@ -1,0 +1,14 @@
+LiLinearMap.binom
+LiLinearMap.binom_self_zero
+LiLinearMap.S
+LiLinearMap.S_zero
+LiLinearMap.S_succ
+LiLinearMap.S_add
+LiLinearMap.S_zero_fun
+LiLinearMap.lam
+LiLinearMap.lam_add
+LiLinearMap.lam_zero
+LiLinearMap.lam_one
+LiLinearMap.NonnegStream
+LiLinearMap.S_nonneg
+LiLinearMap.lam_nonneg_of_nonneg
